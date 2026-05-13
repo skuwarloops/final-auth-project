@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npx ng build",
+  "outputDirectory": "dist/angular-auth-boilerplate",
+  "installCommand": "npm install",
+  "framework": "angular",
+  "rootDirectory": "."
+}
