@@ -1,0 +1,58 @@
+<h2>{{ title }}</h2>
+<div *ngIf="loading" class="text-center p-5">Loading...</div>
+
+<form *ngIf="!loading" [formGroup]="form" (ngSubmit)="onSubmit()">
+  <div class="row">
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Title</label>
+      <select formControlName="title" class="form-select" [ngClass]="{ 'is-invalid': submitted && f['title'].errors }">
+        <option value="Mr">Mr</option>
+        <option value="Mrs">Ms</option>
+        <option value="Ms">Mrs</option>
+        <option value="Dr">Dr</option>
+      </select>
+      <div *ngIf="submitted && f['title'].errors" class="invalid-feedback">Title is required</div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+      <label class="form-label">First Name</label>
+      <input type="text" formControlName="firstName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f['firstName'].errors }" />
+      <div *ngIf="submitted && f['firstName'].errors" class="invalid-feedback">First Name is required</div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Last Name</label>
+      <input type="text" formControlName="lastName" class="form-control" [ngClass]="{ 'is-invalid': submitted && f['lastName'].errors }" />
+      <div *ngIf="submitted && f['lastName'].errors" class="invalid-feedback">Last Name is required</div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Email</label>
+      <input type="email" formControlName="email" class="form-control" [ngClass]="{ 'is-invalid': submitted && f['email'].errors }" />
+      <div *ngIf="submitted && f['email'].errors" class="invalid-feedback">
+        <div *ngIf="f['email'].errors['required']">Email is required</div>
+        <div *ngIf="f['email'].errors['email']">Invalid email format</div>
+      </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+      <label class="form-label">Role</label>
+      <select formControlName="role" class="form-select" [ngClass]="{ 'is-invalid': submitted && f['role'].errors }">
+        <option *ngFor="let role of roles" [value]="role">{{ role }}</option>
+      </select>
+      <div *ngIf="submitted && f['role'].errors" class="invalid-feedback">Role is required</div>
+    </div>
+  </div>
+  
+  <div class="alert alert-info">
+    <strong>Note:</strong> New accounts are created with default password: <code>Password123</code>
+  </div>
+  
+  <div class="mb-3">
+    <button type="submit" [disabled]="submitting" class="btn btn-primary me-2">
+      <span *ngIf="submitting" class="spinner-border spinner-border-sm me-1"></span>
+      Save
+    </button>
+    <button type="button" (click)="goBack()" class="btn btn-secondary">Cancel</button>
+  </div>
+</form>
