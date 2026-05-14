@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/angular-auth-boilerplate/browser",
-  "installCommand": "npm install",
-  "framework": null
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
