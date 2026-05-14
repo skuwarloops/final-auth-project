@@ -9,10 +9,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
 
@@ -20,9 +20,13 @@ jobs:
         working-directory: ./frontend
         run: npm install
 
+      - name: Fix ng permissions
+        working-directory: ./frontend
+        run: chmod +x node_modules/.bin/ng
+
       - name: Build Angular app
         working-directory: ./frontend
-        run: npx ng build --configuration production
+        run: node_modules/.bin/ng build --configuration production
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
