@@ -1,13 +1,12 @@
 <h4 class="card-title mb-4">Register</h4>
-<alert id="register-alert"></alert>
 <form [formGroup]="form" (ngSubmit)="onSubmit()">
   <div class="mb-3">
     <label class="form-label">Title</label>
     <select formControlName="title" class="form-select" [ngClass]="{ 'is-invalid': submitted && f['title'].errors }">
       <option value=""></option>
       <option value="Mr">Mr</option>
-      <option value="Mrs">Ms</option>
-      <option value="Ms">Mrs</option>
+      <option value="Mrs">Mrs</option>
+      <option value="Ms">Ms</option>
     </select>
     <div *ngIf="submitted && f['title'].errors" class="invalid-feedback">
       <div *ngIf="f['title'].errors['required']">Title is required</div>

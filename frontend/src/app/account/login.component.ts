@@ -2,15 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
+import { Router } from '@angular/router';
 import { first } from 'rxjs/operators';
-import { AccountService, AlertService } from '@app/_services';
-import { AlertComponent } from '@app/_components/alert.component';
+import { AccountService } from '@app/_services';
+import { ToastService } from '@app/_services/toast.service';
 
 @Component({
   templateUrl: 'login.component.html',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent]
+  imports: [CommonModule, ReactiveFormsModule, RouterLink]
 })
 export class LoginComponent implements OnInit {
   form!: UntypedFormGroup;
@@ -19,10 +19,9 @@ export class LoginComponent implements OnInit {
 
   constructor(
     private formBuilder: UntypedFormBuilder,
-    private route: ActivatedRoute,
     private router: Router,
     private accountService: AccountService,
-    private alertService: AlertService
+    private toastService: ToastService
   ) { }
 
   ngOnInit() {
@@ -36,18 +35,17 @@ export class LoginComponent implements OnInit {
 
   onSubmit() {
     this.submitted = true;
-    this.alertService.clear();
     if (this.form.invalid) return;
+    
     this.loading = true;
     this.accountService.login(this.f['email'].value, this.f['password'].value)
       .pipe(first())
       .subscribe({
         next: () => {
-          const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
-          this.router.navigateByUrl(returnUrl);
+          this.router.navigate(['/']);
         },
-        error: (error: string) => {
-          this.alertService.error(error, { id: 'login-alert' });
+        error: () => {
+          this.toastService.error('Email or password is incorrect');
           this.loading = false;
         }
       });

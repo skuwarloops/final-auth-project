@@ -4,12 +4,13 @@ import { CommonModule } from '@angular/common';
 import { Account, Role } from '@app/_models';
 import { AccountService } from '@app/_services';
 import { AlertComponent } from '@app/_components/alert.component';
+import { ToastComponent } from './_components/toast.component';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, AlertComponent]
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, AlertComponent, ToastComponent]
 })
 export class AppComponent implements OnInit {
   Role = Role;

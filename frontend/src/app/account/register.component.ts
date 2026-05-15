@@ -4,14 +4,14 @@ import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { first } from 'rxjs/operators';
-import { AccountService, AlertService } from '@app/_services';
+import { AccountService } from '@app/_services';
+import { ToastService } from '@app/_services/toast.service';
 import { MustMatch } from '@app/_helpers';
-import { AlertComponent } from '@app/_components/alert.component';
 
 @Component({
   templateUrl: 'register.component.html',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, AlertComponent]
+  imports: [CommonModule, ReactiveFormsModule, RouterLink]
 })
 export class RegisterComponent implements OnInit {
   form!: UntypedFormGroup;
@@ -22,7 +22,7 @@ export class RegisterComponent implements OnInit {
     private formBuilder: UntypedFormBuilder,
     private router: Router,
     private accountService: AccountService,
-    private alertService: AlertService
+    private toastService: ToastService
   ) { }
 
   ngOnInit() {
@@ -41,25 +41,30 @@ export class RegisterComponent implements OnInit {
 
   onSubmit() {
     this.submitted = true;
-    this.alertService.clear();
     if (this.form.invalid) return;
+    
     this.loading = true;
     this.accountService.register(this.form.value)
       .pipe(first())
       .subscribe({
         next: () => {
-          this.alertService.success('Registration successful, please check your email for verification instructions', { keepAfterRouteChange: true });
-          this.router.navigate(['/account/login']);
+          this.toastService.success('Account registered successfully! Please check your email for verification instructions.');
+          setTimeout(() => {
+            this.router.navigate(['/account/login']);
+          }, 2000);
         },
         error: (error) => {
-          // Handle the error properly
           let errorMessage = 'Registration failed. Please try again.';
           
           if (error.error && error.error.message) {
-            errorMessage = error.error.message;
+            if (error.error.message === 'User already exists') {
+              errorMessage = 'This email is already registered. Please login or use a different email.';
+            } else {
+              errorMessage = error.error.message;
+            }
           }
           
-          this.alertService.error(errorMessage, { id: 'register-alert' });
+          this.toastService.error(errorMessage);
           this.loading = false;
         }
       });
