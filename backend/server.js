@@ -17,64 +17,63 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Email sending function - Supports both API (preferred) and console fallback
+// Email sending function using Brevo API only
 const sendEmail = async (to, subject, html) => {
-  // Try Brevo API if API key is set (not the SMTP password)
-  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_PASSWORD;
+  const apiKey = process.env.BREVO_API_KEY;
   
-  // Check if we have a valid API key (starts with 'xkeysib-' or is a proper API key)
-  if (apiKey && apiKey.length > 20 && !apiKey.includes('@')) {
-    try {
-      const data = JSON.stringify({
-        sender: { email: process.env.BREVO_LOGIN, name: "Angular Auth App" },
-        to: [{ email: to }],
-        subject: subject,
-        htmlContent: html
-      });
-
-      const options = {
-        hostname: 'api.brevo.com',
-        path: '/v3/smtp/email',
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'api-key': apiKey,
-          'Content-Length': Buffer.byteLength(data)
-        }
-      };
-
-      return new Promise((resolve, reject) => {
-        const req = https.request(options, (res) => {
-          let responseData = '';
-          res.on('data', (chunk) => responseData += chunk);
-          res.on('end', () => {
-            if (res.statusCode === 201) {
-              console.log('✅ Email sent to:', to);
-              resolve(JSON.parse(responseData));
-            } else {
-              console.error('❌ Email API error:', res.statusCode, responseData);
-              reject(new Error(`Email API error: ${res.statusCode}`));
-            }
-          });
-        });
-        req.on('error', reject);
-        req.write(data);
-        req.end();
-      });
-    } catch (error) {
-      console.error('❌ Email send failed, falling back to console log:', error.message);
-      // Fall through to console log
-    }
+  console.log('📧 Attempting to send email to:', to);
+  console.log('📧 API Key present:', apiKey ? 'YES (length: ' + apiKey.length + ')' : 'NO');
+  
+  if (!apiKey) {
+    console.error('❌ BREVO_API_KEY is missing from environment variables');
+    console.log('📧 FALLBACK: Email would be sent to:', to);
+    return Promise.resolve({ message: 'API key missing' });
   }
-  
-  // Fallback: Log to console (for development/school projects)
-  console.log('\n📧 ========== EMAIL WOULD BE SENT ==========');
-  console.log('To:', to);
-  console.log('Subject:', subject);
-  console.log('Content:', html.replace(/<[^>]*>/g, ' ').substring(0, 200));
-  console.log('==========================================\n');
-  
-  return Promise.resolve({ message: 'Email logged to console (no actual email sent)' });
+
+  const data = JSON.stringify({
+    sender: { 
+      email: process.env.BREVO_LOGIN, 
+      name: "Angular Auth App" 
+    },
+    to: [{ email: to }],
+    subject: subject,
+    htmlContent: html
+  });
+
+  const options = {
+    hostname: 'api.brevo.com',
+    path: '/v3/smtp/email',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-key': apiKey,
+      'Content-Length': Buffer.byteLength(data)
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => responseData += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 201) {
+          console.log('✅ Email sent successfully to:', to);
+          resolve(JSON.parse(responseData));
+        } else {
+          console.error('❌ Email API error:', res.statusCode, responseData);
+          reject(new Error(`Email API error: ${res.statusCode}`));
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      console.error('❌ Email send error:', error.message);
+      reject(error);
+    });
+    
+    req.write(data);
+    req.end();
+  });
 };
 
 // CORS
@@ -203,7 +202,6 @@ app.post('/accounts/register', async (req, res) => {
     
     res.status(201).json({ 
       message: 'Registration successful. Please check your email to verify your account.',
-      // For development only - remove in production!
       debug_verification_link: process.env.NODE_ENV !== 'production' ? verifyUrl : undefined
     });
   } catch (error) {
