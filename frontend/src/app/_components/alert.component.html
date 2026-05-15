@@ -1,4 +1,83 @@
-<div *ngFor="let alert of alerts" class="{{cssClasses(alert)}} alert-dismissible" [ngClass]="{ 'fade show': alert.fade }">
-  <a class="close" (click)="removeAlert(alert)">&times;</a>
-  <span [innerHTML]="alert.message"></span>
+<div *ngFor="let alert of alerts" class="{{ cssClasses(alert) }}" role="alert">
+  <div class="alert-content">
+    <span [innerHTML]="alert.message"></span>
+    <button type="button" class="btn-close" (click)="removeAlert(alert)" aria-label="Close">✗</button>
+  </div>
 </div>
+
+<style>
+  .alert-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .btn-close {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    line-height: 1;
+    color: inherit;
+  }
+
+  .btn-close:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.1);
+    transform: scale(1.1);
+  }
+
+  .btn-close:active {
+    transform: scale(0.95);
+  }
+
+  /* Optional: Make alerts look nicer */
+  .alert {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.375rem;
+  }
+
+  .alert-success {
+    background-color: #d1e7dd;
+    border-left: 4px solid #0f5132;
+    color: #0f5132;
+  }
+
+  .alert-danger {
+    background-color: #f8d7da;
+    border-left: 4px solid #842029;
+    color: #842029;
+  }
+
+  .alert-info {
+    background-color: #cff4fc;
+    border-left: 4px solid #055160;
+    color: #055160;
+  }
+
+  .alert-warning {
+    background-color: #fff3cd;
+    border-left: 4px solid #664d03;
+    color: #664d03;
+  }
+
+  .fade {
+    animation: fadeOut 0.3s ease-in;
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+</style>
