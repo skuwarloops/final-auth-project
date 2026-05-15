@@ -1,5 +1,4 @@
 <h4>Update Profile</h4>
-<alert id="update-profile-alert"></alert>
 <form [formGroup]="form" (ngSubmit)="onSubmit()">
   <div class="mb-3">
     <label class="form-label">Title</label>
@@ -7,8 +6,7 @@
       <option value=""></option>
       <option value="Mr">Mr</option>
       <option value="Mrs">Mrs</option>
-      <option value="Miss">Miss</option>
-      <option value="Ms">Ms</option>
+      <option value="Ms">Mrs</option>
     </select>
     <div *ngIf="submitted && f['title'].errors" class="invalid-feedback">Title is required</div>
   </div>

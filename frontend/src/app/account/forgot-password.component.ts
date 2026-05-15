@@ -15,6 +15,7 @@ export class ForgotPasswordComponent implements OnInit {
   form!: UntypedFormGroup;
   loading = false;
   submitted = false;
+  emailSent = false;
 
   constructor(
     private formBuilder: UntypedFormBuilder,
@@ -39,17 +40,12 @@ export class ForgotPasswordComponent implements OnInit {
       .pipe(first())
       .subscribe({
         next: () => {
+          this.emailSent = true;
           this.toastService.success('Password reset instructions have been sent to your email.');
-          this.form.reset();
-          this.submitted = false;
           this.loading = false;
         },
-        error: (error) => {
-          let errorMessage = 'Unable to process your request. Please try again.';
-          if (error.error && error.error.message) {
-            errorMessage = error.error.message;
-          }
-          this.toastService.error(errorMessage);
+        error: () => {
+          this.toastService.error('Unable to process your request. Please try again.');
           this.loading = false;
         }
       });
