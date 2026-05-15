@@ -14,6 +14,7 @@ export class VerifyEmailComponent implements OnInit {
   verifying = true;
   verified = false;
   verifyFailed = false;
+  errorMessage = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -28,25 +29,29 @@ export class VerifyEmailComponent implements OnInit {
     if (!token) {
       this.verifying = false;
       this.verifyFailed = true;
-      this.toastService.error('No verification token provided.');
+      this.errorMessage = 'No verification token provided.';
+      this.toastService.error(this.errorMessage);
       return;
     }
 
+    // Call the backend to verify email
     this.accountService.verifyEmail(token)
       .pipe(first())
       .subscribe({
-        next: () => {
+        next: (response: any) => {
           this.verifying = false;
           this.verified = true;
           this.toastService.success('Email verified successfully! You can now login.');
+          // Redirect to login page after 3 seconds
           setTimeout(() => {
             this.router.navigate(['/account/login']);
           }, 3000);
         },
-        error: () => {
+        error: (error) => {
           this.verifying = false;
           this.verifyFailed = true;
-          this.toastService.error('Invalid or expired verification token.');
+          this.errorMessage = error.error?.message || 'Invalid or expired verification token.';
+          this.toastService.error(this.errorMessage);
         }
       });
   }
