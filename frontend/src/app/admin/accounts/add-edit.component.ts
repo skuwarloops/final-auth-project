@@ -1,53 +1,56 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule, Location } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { first } from 'rxjs/operators';
-import { AccountService, AlertService } from '@app/_services';
-import { Role } from '@app/_models';
+import { AccountService } from '@app/_services';
+import { ToastService } from '@app/_services/toast.service';
 
 @Component({
+  selector: 'admin-add-edit',
   templateUrl: 'add-edit.component.html',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule]
+  imports: [CommonModule, ReactiveFormsModule, RouterLink]
 })
 export class AddEditComponent implements OnInit {
-  form!: FormGroup;
-  id?: string;
-  title: string = '';
+  form!: UntypedFormGroup;
   loading = false;
-  submitting = false;
   submitted = false;
-  roles = Object.values(Role);
+  isAddMode = true;
+  id: string | null = null;
 
   constructor(
-    private formBuilder: FormBuilder,
+    private formBuilder: UntypedFormBuilder,
     private route: ActivatedRoute,
     private router: Router,
-    private location: Location,
     private accountService: AccountService,
-    private alertService: AlertService
+    private toastService: ToastService
   ) { }
 
   ngOnInit() {
     this.id = this.route.snapshot.params['id'];
-    this.title = this.id ? 'Edit Account' : 'Add Account';
+    this.isAddMode = !this.id;
 
     this.form = this.formBuilder.group({
       title: ['', Validators.required],
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
-      role: ['', Validators.required]
+      role: ['User', Validators.required],
+      password: ['', [Validators.minLength(6), ...(this.isAddMode ? [Validators.required] : [])]]
     });
 
-    if (this.id) {
-      this.loading = true;
-      this.accountService.getById(this.id)
+    if (!this.isAddMode) {
+      this.accountService.getById(this.id!)
         .pipe(first())
-        .subscribe(account => {
-          this.form.patchValue(account);
-          this.loading = false;
+        .subscribe({
+          next: (account) => {
+            this.form.patchValue(account);
+          },
+          error: () => {
+            this.toastService.error('Error loading user data');
+            this.router.navigate(['/admin/accounts']);
+          }
         });
     }
   }
@@ -56,35 +59,53 @@ export class AddEditComponent implements OnInit {
 
   onSubmit() {
     this.submitted = true;
+    if (this.form.invalid) return;
     
-    if (this.form.invalid) {
-      return;
+    this.loading = true;
+    
+    if (this.isAddMode) {
+      this.createUser();
+    } else {
+      this.updateUser();
     }
-    
-    this.submitting = true;
-    this.alertService.clear();
+  }
 
-    const formData = this.form.value;
-
-    const action = this.id 
-      ? this.accountService.update(this.id, formData)
-      : this.accountService.create(formData);
-
-    action.pipe(first())
+  private createUser() {
+    this.accountService.create(this.form.value)
+      .pipe(first())
       .subscribe({
         next: () => {
-          this.alertService.success(`${this.title} successful`, { keepAfterRouteChange: true });
+          this.toastService.success('User created successfully');
           this.router.navigate(['/admin/accounts']);
         },
         error: (error) => {
-          console.error('Error saving account:', error);
-          this.alertService.error(error.error?.message || 'Failed to save account');
-          this.submitting = false;
+          let errorMessage = 'Failed to create user';
+          if (error.error?.message === 'User already exists') {
+            errorMessage = 'Email already exists';
+          }
+          this.toastService.error(errorMessage);
+          this.loading = false;
         }
       });
   }
 
-  goBack() {
-    this.location.back();
+  private updateUser() {
+    const updateData = { ...this.form.value };
+    if (!updateData.password) {
+      delete updateData.password;
+    }
+    
+    this.accountService.update(this.id!, updateData)
+      .pipe(first())
+      .subscribe({
+        next: () => {
+          this.toastService.success('User updated successfully');
+          this.router.navigate(['/admin/accounts']);
+        },
+        error: () => {
+          this.toastService.error('Failed to update user');
+          this.loading = false;
+        }
+      });
   }
 }

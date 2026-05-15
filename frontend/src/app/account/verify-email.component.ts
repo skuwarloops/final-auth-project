@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { Router, ActivatedRoute } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { first } from 'rxjs/operators';
-import { AccountService, AlertService } from '@app/_services';
+import { AccountService } from '@app/_services';
+import { ToastService } from '@app/_services/toast.service';
 
 @Component({
   templateUrl: 'verify-email.component.html',
@@ -12,27 +12,41 @@ import { AccountService, AlertService } from '@app/_services';
 })
 export class VerifyEmailComponent implements OnInit {
   verifying = true;
-  verifyFailed = false;
+  verified = false;
+  error = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private accountService: AccountService,
-    private alertService: AlertService
+    private toastService: ToastService
   ) { }
 
   ngOnInit() {
-    const token = this.route.snapshot.queryParams['token'];
+    const token = this.route.snapshot.queryParamMap.get('token');
+    
+    if (!token) {
+      this.verifying = false;
+      this.error = true;
+      this.toastService.error('No verification token provided.');
+      return;
+    }
+
     this.accountService.verifyEmail(token)
       .pipe(first())
       .subscribe({
         next: () => {
-          this.alertService.success('Verification successful, you can now login', { keepAfterRouteChange: true });
-          this.router.navigate(['/account/login']);
+          this.verifying = false;
+          this.verified = true;
+          this.toastService.success('Email verified successfully! You can now login.');
+          setTimeout(() => {
+            this.router.navigate(['/account/login']);
+          }, 3000);
         },
         error: () => {
-          this.verifyFailed = true;
           this.verifying = false;
+          this.error = true;
+          this.toastService.error('Invalid or expired verification token.');
         }
       });
   }

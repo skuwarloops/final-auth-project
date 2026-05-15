@@ -5,6 +5,7 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { map, finalize } from 'rxjs/operators';
 import { environment } from '@environments/environment';
 import { Account } from '@app/_models';
+import { ToastService } from '@app/_services/toast.service';
 
 const baseUrl = `${environment.apiUrl}/accounts`;
 
@@ -13,7 +14,11 @@ export class AccountService {
   private accountSubject: BehaviorSubject<Account | null>;
   public account: Observable<Account | null>;
 
-  constructor(private router: Router, private http: HttpClient) {
+  constructor(
+    private router: Router, 
+    private http: HttpClient,
+    private toastService: ToastService
+  ) {
     this.accountSubject = new BehaviorSubject<Account | null>(null);
     this.account = this.accountSubject.asObservable();
   }
@@ -27,6 +32,7 @@ export class AccountService {
       .pipe(map(account => {
         this.accountSubject.next(account);
         this.startRefreshTokenTimer();
+        this.toastService.success(`Welcome back, ${account.firstName}!`);
         return account;
       }));
   }
@@ -35,9 +41,11 @@ export class AccountService {
     this.http.post<any>(`${baseUrl}/revoke-token`, {}, { withCredentials: true }).subscribe();
     this.stopRefreshTokenTimer();
     this.accountSubject.next(null);
+    this.toastService.info('You have been logged out successfully.');
     this.router.navigate(['/account/login']);
   }
 
+  // ... rest of the service remains the same
   refreshToken() {
     return this.http.post<Account>(`${baseUrl}/refresh-token`, {}, { withCredentials: true })
       .pipe(map((account) => {
@@ -82,7 +90,7 @@ export class AccountService {
   update(id: string, params: any) {
     return this.http.put(`${baseUrl}/${id}`, params)
       .pipe(map((account: any) => {
-        if (id === this.accountValue?.id) {
+        if (id === this.accountValue?.id.toString()) {
           account = { ...this.accountValue, ...account };
           this.accountSubject.next(account);
         }
@@ -93,7 +101,7 @@ export class AccountService {
   delete(id: string) {
     return this.http.delete(`${baseUrl}/${id}`)
       .pipe(finalize(() => {
-        if (id === this.accountValue?.id) {
+        if (id === this.accountValue?.id.toString()) {
           this.logout();
         }
       }));
