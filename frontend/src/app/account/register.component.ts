@@ -51,8 +51,15 @@ export class RegisterComponent implements OnInit {
           this.alertService.success('Registration successful, please check your email for verification instructions', { keepAfterRouteChange: true });
           this.router.navigate(['/account/login']);
         },
-        error: (error: string) => {
-          this.alertService.error(error, { id: 'register-alert' });
+        error: (error) => {
+          // Handle the error properly
+          let errorMessage = 'Registration failed. Please try again.';
+          
+          if (error.error && error.error.message) {
+            errorMessage = error.error.message;
+          }
+          
+          this.alertService.error(errorMessage, { id: 'register-alert' });
           this.loading = false;
         }
       });
