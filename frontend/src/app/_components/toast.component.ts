@@ -9,7 +9,7 @@ import { Toast } from '@app/_models/toast';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div *ngIf="toast" class="toast-container" [class.fade-out]="toast.fade">
+    <div *ngIf="toast" class="toast-container" [class.hide]="hideToast">
       <div class="toast-notification" [class]="'toast-' + toast.type">
         <div class="toast-content">
           <div class="toast-icon">
@@ -23,7 +23,7 @@ import { Toast } from '@app/_models/toast';
         <button class="toast-close" (click)="closeToast()">×</button>
       </div>
       <div class="toast-progress" [class]="'progress-' + toast.type">
-        <div class="toast-progress-bar"></div>
+        <div class="toast-progress-bar" [style.animation]="'progress 3s linear forwards'"></div>
       </div>
     </div>
   `,
@@ -38,7 +38,7 @@ import { Toast } from '@app/_models/toast';
       animation: slideIn 0.3s ease-out;
     }
 
-    .toast-container.fade-out {
+    .toast-container.hide {
       animation: fadeOut 0.3s ease-out forwards;
     }
 
@@ -76,9 +76,6 @@ import { Toast } from '@app/_models/toast';
     }
 
     .toast-close {
-      position: absolute;
-      top: 8px;
-      right: 8px;
       background: transparent;
       border: none;
       font-size: 20px;
@@ -87,6 +84,9 @@ import { Toast } from '@app/_models/toast';
       padding: 4px 8px;
       border-radius: 4px;
       transition: all 0.2s;
+      position: absolute;
+      top: 8px;
+      right: 8px;
     }
 
     .toast-close:hover {
@@ -136,7 +136,6 @@ import { Toast } from '@app/_models/toast';
       width: 100%;
       background: #10b981;
       transform-origin: left;
-      animation: progress 3s linear forwards;
     }
 
     .progress-error .toast-progress-bar {
@@ -185,57 +184,47 @@ import { Toast } from '@app/_models/toast';
 })
 export class ToastComponent implements OnInit, OnDestroy {
   toast: Toast | null = null;
+  hideToast = false;
   private subscription: Subscription | null = null;
-  private timeoutId: any;
-  private fadeTimeoutId: any;
+  private timeoutId: any = null;
 
   constructor(private toastService: ToastService) {}
 
   ngOnInit() {
     this.subscription = this.toastService.toast$.subscribe(toast => {
-      // Clear existing timeouts
+      // Clear existing timeout
       if (this.timeoutId) {
         clearTimeout(this.timeoutId);
-      }
-      if (this.fadeTimeoutId) {
-        clearTimeout(this.fadeTimeoutId);
+        this.timeoutId = null;
       }
       
+      this.toast = toast;
+      this.hideToast = false;
+      
       if (toast) {
-        this.toast = toast;
-        this.toast.fade = false;
-        
-        // Auto dismiss after 3 seconds (3000ms)
+        // Auto hide after 3 seconds
         this.timeoutId = setTimeout(() => {
-          if (this.toast) {
-            this.toast.fade = true;
-            // Remove after fade animation (300ms)
-            this.fadeTimeoutId = setTimeout(() => {
-              this.toast = null;
-              this.toastService.clear();
-            }, 300);
-          }
+          this.hideToast = true;
+          // Remove toast after animation
+          setTimeout(() => {
+            this.toast = null;
+            this.toastService.clear();
+          }, 300);
         }, 3000);
-      } else {
-        this.toast = null;
       }
     });
   }
 
   closeToast() {
-    if (this.toast) {
-      // Clear auto-dismiss timeout
-      if (this.timeoutId) {
-        clearTimeout(this.timeoutId);
-      }
-      // Start fade out animation
-      this.toast.fade = true;
-      // Remove after animation
-      this.fadeTimeoutId = setTimeout(() => {
-        this.toast = null;
-        this.toastService.clear();
-      }, 300);
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
+    this.hideToast = true;
+    setTimeout(() => {
+      this.toast = null;
+      this.toastService.clear();
+    }, 300);
   }
 
   ngOnDestroy() {
@@ -244,9 +233,6 @@ export class ToastComponent implements OnInit, OnDestroy {
     }
     if (this.timeoutId) {
       clearTimeout(this.timeoutId);
-    }
-    if (this.fadeTimeoutId) {
-      clearTimeout(this.fadeTimeoutId);
     }
   }
 }
