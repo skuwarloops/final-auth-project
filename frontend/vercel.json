@@ -1,7 +1,0 @@
-{
-  
-  "outputDirectory": "dist/angular-auth-boilerplate/browser",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}

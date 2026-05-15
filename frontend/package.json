@@ -5,8 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "build:prod": "ng build --configuration production",
-    "vercel-build": "npm install && npx ng build --configuration production"
+    "build:prod": "ng build --configuration production"
   },
   "dependencies": {
     "@angular/animations": "^21.2.7",
