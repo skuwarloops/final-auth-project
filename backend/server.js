@@ -17,7 +17,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Email sending function using Brevo API only
+// Email sending function using Brevo API
 const sendEmail = async (to, subject, html) => {
   const apiKey = process.env.BREVO_API_KEY;
   
@@ -178,9 +178,6 @@ app.post('/accounts/register', async (req, res) => {
 
     const verifyUrl = `${FRONTEND_URL}/account/verify-email?token=${verificationToken}`;
     
-    // Alternative verification URL (direct API call)
-    const apiVerifyUrl = `https://final-auth-project.onrender.com/accounts/verify-email?token=${verificationToken}`;
-
     await sendEmail(
       email,
       'Verify your email - Angular Auth App',
@@ -191,18 +188,14 @@ app.post('/accounts/register', async (req, res) => {
           Verify Email
         </a>
         <p>Or copy this link: ${verifyUrl}</p>
-        <hr>
-        <p><strong>🔧 For testing:</strong> If email doesn't arrive, you can verify manually using this API call:</p>
-        <code>curl -X POST ${apiVerifyUrl}</code>
       `
     );
 
     console.log(`✅ User registered: ${email} (${role})`);
-    console.log(`🔗 Verification link (copy this if email fails): ${verifyUrl}`);
+    console.log(`🔗 Verification link: ${verifyUrl}`);
     
     res.status(201).json({ 
-      message: 'Registration successful. Please check your email to verify your account.',
-      debug_verification_link: process.env.NODE_ENV !== 'production' ? verifyUrl : undefined
+      message: 'Registration successful. Please check your email to verify your account.'
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -210,7 +203,7 @@ app.post('/accounts/register', async (req, res) => {
   }
 });
 
-// Verify Email - Supports both POST and GET
+// Verify Email
 app.post('/accounts/verify-email', async (req, res) => {
   try {
     const { token } = req.body;
@@ -459,17 +452,54 @@ app.get('/accounts/:id', verifyToken, async (req, res) => {
   res.json(result.rows[0]);
 });
 
-// Create account (Admin)
+// Create account (Admin) - FIXED: sends verification email
 app.post('/accounts', verifyToken, async (req, res) => {
   if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Admin access required' });
-  const { email, firstName, lastName, title, role, password } = req.body;
-  const hashedPassword = await bcrypt.hash(password || 'Password123', 10);
-  const result = await pool.query(
-    `INSERT INTO users (email, password, first_name, last_name, title, role, is_verified)
-     VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id, email, first_name as "firstName", last_name as "lastName", title, role, is_verified as "isVerified"`,
-    [email, hashedPassword, firstName, lastName, title, role || 'User']
-  );
-  res.status(201).json(result.rows[0]);
+  
+  try {
+    const { email, password, firstName, lastName, title, role } = req.body;
+    
+    // Check if user already exists
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(password || 'Password123', 10);
+    const verificationToken = generateToken();
+    
+    const result = await pool.query(
+      `INSERT INTO users (email, password, first_name, last_name, title, role, is_verified, verification_token)
+       VALUES ($1, $2, $3, $4, $5, $6, false, $7) RETURNING id, email, first_name as "firstName", last_name as "lastName", title, role, is_verified as "isVerified"`,
+      [email, hashedPassword, firstName, lastName, title, role || 'User', verificationToken]
+    );
+    
+    // Send verification email
+    const verifyUrl = `${FRONTEND_URL}/account/verify-email?token=${verificationToken}`;
+    
+    await sendEmail(
+      email,
+      'Verify your email - Angular Auth App',
+      `
+        <h2>Welcome ${firstName || 'User'}!</h2>
+        <p>An admin has created an account for you. Please verify your email by clicking the link below:</p>
+        <a href="${verifyUrl}" style="background:#2E75B6;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
+          Verify Email
+        </a>
+        <p>Or copy this link: ${verifyUrl}</p>
+        <p>Your default password is: <strong>${password || 'Password123'}</strong></p>
+        <p>Please change your password after logging in.</p>
+      `
+    );
+    
+    console.log(`✅ Admin created user: ${email} (${role || 'User'})`);
+    console.log(`🔗 Verification link: ${verifyUrl}`);
+    
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Admin create user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // Update account

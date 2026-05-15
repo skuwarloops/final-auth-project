@@ -73,7 +73,6 @@ export class AddEditComponent implements OnInit {
   }
 
   private createUser() {
-    // Set default password for new users
     const userData = {
       ...this.form.value,
       password: 'Password123'
@@ -83,7 +82,7 @@ export class AddEditComponent implements OnInit {
       .pipe(first())
       .subscribe({
         next: () => {
-          this.toastService.success('User created successfully');
+          this.toastService.success('User created successfully. Verification email has been sent to the user.');
           this.router.navigate(['/admin/accounts']);
         },
         error: (error) => {
