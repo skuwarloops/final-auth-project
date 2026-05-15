@@ -25,6 +25,11 @@ export class LoginComponent implements OnInit {
   ) { }
 
   ngOnInit() {
+    // Redirect to home if already logged in
+    if (this.accountService.accountValue) {
+      this.router.navigate(['/']);
+    }
+    
     this.form = this.formBuilder.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required]
@@ -42,11 +47,11 @@ export class LoginComponent implements OnInit {
       .pipe(first())
       .subscribe({
         next: () => {
-          // Login successful - navigation happens in the service
+          // Redirect to home page on successful login
+          this.router.navigate(['/']);
           this.loading = false;
         },
         error: (error) => {
-          // Make sure loading is set to false on error
           this.loading = false;
           this.toastService.error('Email or password is incorrect');
         }
