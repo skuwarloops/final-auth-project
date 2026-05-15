@@ -10,7 +10,7 @@ import { ToastService } from '@app/_services/toast.service';
   selector: 'admin-add-edit',
   templateUrl: 'add-edit.component.html',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink]
+  imports: [CommonModule, ReactiveFormsModule]
 })
 export class AddEditComponent implements OnInit {
   title: string = '';
