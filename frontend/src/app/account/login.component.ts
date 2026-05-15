@@ -47,13 +47,15 @@ export class LoginComponent implements OnInit {
       .pipe(first())
       .subscribe({
         next: () => {
-          // Redirect to home page on successful login
+          // Success - redirect to home
           this.router.navigate(['/']);
           this.loading = false;
         },
         error: (error) => {
+          // IMPORTANT: Reset loading state so button becomes active again
           this.loading = false;
-          this.toastService.error('Email or password is incorrect');
+          // Show toast notification for wrong credentials
+          this.toastService.error('Invalid email or password. Please try again.');
         }
       });
   }

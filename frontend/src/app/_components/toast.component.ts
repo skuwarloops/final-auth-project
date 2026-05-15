@@ -20,10 +20,10 @@ import { Toast } from '@app/_models/toast';
           </div>
           <div class="toast-message" [innerHTML]="toast.message"></div>
         </div>
-        <button class="toast-close" (click)="close()">×</button>
+        <button class="toast-close" (click)="closeToast()">×</button>
       </div>
       <div class="toast-progress" [class]="'progress-' + toast.type">
-        <div class="toast-progress-bar" [style.animation]="'progress 5s linear forwards'"></div>
+        <div class="toast-progress-bar"></div>
       </div>
     </div>
   `,
@@ -94,7 +94,6 @@ import { Toast } from '@app/_models/toast';
       color: #333;
     }
 
-    /* Success toast */
     .toast-success {
       border-left: 4px solid #10b981;
     }
@@ -103,7 +102,6 @@ import { Toast } from '@app/_models/toast';
       color: white;
     }
 
-    /* Error toast */
     .toast-error {
       border-left: 4px solid #ef4444;
     }
@@ -112,7 +110,6 @@ import { Toast } from '@app/_models/toast';
       color: white;
     }
 
-    /* Info toast */
     .toast-info {
       border-left: 4px solid #3b82f6;
     }
@@ -121,7 +118,6 @@ import { Toast } from '@app/_models/toast';
       color: white;
     }
 
-    /* Warning toast */
     .toast-warning {
       border-left: 4px solid #f59e0b;
     }
@@ -130,7 +126,6 @@ import { Toast } from '@app/_models/toast';
       color: white;
     }
 
-    /* Progress bar */
     .toast-progress {
       height: 3px;
       background: #f0f0f0;
@@ -139,27 +134,21 @@ import { Toast } from '@app/_models/toast';
     .toast-progress-bar {
       height: 100%;
       width: 100%;
-      transform-origin: left;
-    }
-
-    .progress-success .toast-progress-bar {
       background: #10b981;
-      animation: progress 5s linear forwards;
+      transform-origin: left;
+      animation: progress 3s linear forwards;
     }
 
     .progress-error .toast-progress-bar {
       background: #ef4444;
-      animation: progress 5s linear forwards;
     }
 
     .progress-info .toast-progress-bar {
       background: #3b82f6;
-      animation: progress 5s linear forwards;
     }
 
     .progress-warning .toast-progress-bar {
       background: #f59e0b;
-      animation: progress 5s linear forwards;
     }
 
     @keyframes slideIn {
@@ -198,39 +187,51 @@ export class ToastComponent implements OnInit, OnDestroy {
   toast: Toast | null = null;
   private subscription: Subscription | null = null;
   private timeoutId: any;
+  private fadeTimeoutId: any;
 
   constructor(private toastService: ToastService) {}
 
   ngOnInit() {
     this.subscription = this.toastService.toast$.subscribe(toast => {
+      // Clear existing timeouts
       if (this.timeoutId) {
         clearTimeout(this.timeoutId);
+      }
+      if (this.fadeTimeoutId) {
+        clearTimeout(this.fadeTimeoutId);
       }
       
       if (toast) {
         this.toast = toast;
+        this.toast.fade = false;
         
-        // Start fade out animation before removing
-        if (toast.autoClose) {
-          this.timeoutId = setTimeout(() => {
-            if (this.toast) {
-              this.toast.fade = true;
-              setTimeout(() => {
-                this.toast = null;
-              }, 300);
-            }
-          }, 4700);
-        }
+        // Auto dismiss after 3 seconds (3000ms)
+        this.timeoutId = setTimeout(() => {
+          if (this.toast) {
+            this.toast.fade = true;
+            // Remove after fade animation (300ms)
+            this.fadeTimeoutId = setTimeout(() => {
+              this.toast = null;
+              this.toastService.clear();
+            }, 300);
+          }
+        }, 3000);
       } else {
         this.toast = null;
       }
     });
   }
 
-  close() {
+  closeToast() {
     if (this.toast) {
+      // Clear auto-dismiss timeout
+      if (this.timeoutId) {
+        clearTimeout(this.timeoutId);
+      }
+      // Start fade out animation
       this.toast.fade = true;
-      setTimeout(() => {
+      // Remove after animation
+      this.fadeTimeoutId = setTimeout(() => {
         this.toast = null;
         this.toastService.clear();
       }, 300);
@@ -243,6 +244,9 @@ export class ToastComponent implements OnInit, OnDestroy {
     }
     if (this.timeoutId) {
       clearTimeout(this.timeoutId);
+    }
+    if (this.fadeTimeoutId) {
+      clearTimeout(this.fadeTimeoutId);
     }
   }
 }

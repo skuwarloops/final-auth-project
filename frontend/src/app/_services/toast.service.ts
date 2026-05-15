@@ -30,12 +30,5 @@ export class ToastService {
   private show(message: string, type: 'success' | 'error' | 'info' | 'warning') {
     const toast = new Toast(message, type);
     this.toastSubject.next(toast);
-    
-    // Auto remove after 5 seconds
-    if (toast.autoClose) {
-      setTimeout(() => {
-        this.toastSubject.next(null);
-      }, 5000);
-    }
   }
 }
