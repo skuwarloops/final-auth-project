@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 const { Pool } = require('pg');
-const nodemailer = require('nodemailer');
+const https = require('https');
 
 dotenv.config();
 
@@ -17,16 +17,65 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Email transporter (Brevo)
-const transporter = nodemailer.createTransport({
-  host: 'smtp-relay.brevo.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.BREVO_LOGIN,
-    pass: process.env.BREVO_PASSWORD
+// Email sending function - Supports both API (preferred) and console fallback
+const sendEmail = async (to, subject, html) => {
+  // Try Brevo API if API key is set (not the SMTP password)
+  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_PASSWORD;
+  
+  // Check if we have a valid API key (starts with 'xkeysib-' or is a proper API key)
+  if (apiKey && apiKey.length > 20 && !apiKey.includes('@')) {
+    try {
+      const data = JSON.stringify({
+        sender: { email: process.env.BREVO_LOGIN, name: "Angular Auth App" },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: html
+      });
+
+      const options = {
+        hostname: 'api.brevo.com',
+        path: '/v3/smtp/email',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': apiKey,
+          'Content-Length': Buffer.byteLength(data)
+        }
+      };
+
+      return new Promise((resolve, reject) => {
+        const req = https.request(options, (res) => {
+          let responseData = '';
+          res.on('data', (chunk) => responseData += chunk);
+          res.on('end', () => {
+            if (res.statusCode === 201) {
+              console.log('✅ Email sent to:', to);
+              resolve(JSON.parse(responseData));
+            } else {
+              console.error('❌ Email API error:', res.statusCode, responseData);
+              reject(new Error(`Email API error: ${res.statusCode}`));
+            }
+          });
+        });
+        req.on('error', reject);
+        req.write(data);
+        req.end();
+      });
+    } catch (error) {
+      console.error('❌ Email send failed, falling back to console log:', error.message);
+      // Fall through to console log
+    }
   }
-});
+  
+  // Fallback: Log to console (for development/school projects)
+  console.log('\n📧 ========== EMAIL WOULD BE SENT ==========');
+  console.log('To:', to);
+  console.log('Subject:', subject);
+  console.log('Content:', html.replace(/<[^>]*>/g, ' ').substring(0, 200));
+  console.log('==========================================\n');
+  
+  return Promise.resolve({ message: 'Email logged to console (no actual email sent)' });
+};
 
 // CORS
 app.use(cors({
@@ -85,18 +134,24 @@ const generateAccessToken = (user) => {
 
 const generateToken = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
-const sendEmail = async (to, subject, html) => {
-  await transporter.sendMail({
-    from: `"Angular Auth App" <${process.env.BREVO_LOGIN}>`,
-    to,
-    subject,
-    html
-  });
-};
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Backend is running!' });
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Authentication API is running!',
+    endpoints: {
+      register: 'POST /accounts/register',
+      login: 'POST /accounts/authenticate',
+      verifyEmail: 'POST /accounts/verify-email',
+      forgotPassword: 'POST /accounts/forgot-password',
+      resetPassword: 'POST /accounts/reset-password',
+      health: 'GET /health'
+    }
+  });
 });
 
 // Register
@@ -123,42 +178,79 @@ app.post('/accounts/register', async (req, res) => {
     );
 
     const verifyUrl = `${FRONTEND_URL}/account/verify-email?token=${verificationToken}`;
+    
+    // Alternative verification URL (direct API call)
+    const apiVerifyUrl = `https://final-auth-project.onrender.com/accounts/verify-email?token=${verificationToken}`;
 
     await sendEmail(
       email,
       'Verify your email - Angular Auth App',
       `
-        <h2>Welcome ${firstName}!</h2>
+        <h2>Welcome ${firstName || 'User'}!</h2>
         <p>Please verify your email by clicking the link below:</p>
         <a href="${verifyUrl}" style="background:#2E75B6;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
           Verify Email
         </a>
         <p>Or copy this link: ${verifyUrl}</p>
+        <hr>
+        <p><strong>🔧 For testing:</strong> If email doesn't arrive, you can verify manually using this API call:</p>
+        <code>curl -X POST ${apiVerifyUrl}</code>
       `
     );
 
     console.log(`✅ User registered: ${email} (${role})`);
-    res.status(201).json({ message: 'Registration successful. Please check your email to verify your account.' });
+    console.log(`🔗 Verification link (copy this if email fails): ${verifyUrl}`);
+    
+    res.status(201).json({ 
+      message: 'Registration successful. Please check your email to verify your account.',
+      // For development only - remove in production!
+      debug_verification_link: process.env.NODE_ENV !== 'production' ? verifyUrl : undefined
+    });
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// Verify Email
+// Verify Email - Supports both POST and GET
 app.post('/accounts/verify-email', async (req, res) => {
   try {
     const { token } = req.body;
     const result = await pool.query(
-      'UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING id',
+      'UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING id, email',
       [token]
     );
 
     if (result.rows.length === 0) {
-      return res.status(400).json({ message: 'Invalid token' });
+      return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
-    console.log('✅ Email verified');
+    console.log(`✅ Email verified for: ${result.rows[0].email}`);
+    res.json({ message: 'Email verified successfully' });
+  } catch (error) {
+    console.error('Verify error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Also support GET for easier testing
+app.get('/accounts/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ message: 'Token required' });
+    }
+    
+    const result = await pool.query(
+      'UPDATE users SET is_verified = true, verification_token = NULL WHERE verification_token = $1 RETURNING id, email',
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    console.log(`✅ Email verified for: ${result.rows[0].email}`);
     res.json({ message: 'Email verified successfully' });
   } catch (error) {
     console.error('Verify error:', error);
@@ -275,7 +367,7 @@ app.post('/accounts/forgot-password', async (req, res) => {
         'Reset your password - Angular Auth App',
         `
           <h2>Password Reset</h2>
-          <p>Hi ${user.first_name},</p>
+          <p>Hi ${user.first_name || 'User'},</p>
           <p>Click the link below to reset your password:</p>
           <a href="${resetUrl}" style="background:#2E75B6;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">
             Reset Password
@@ -418,6 +510,24 @@ app.delete('/accounts/:id', verifyToken, async (req, res) => {
   if (req.user.role !== 'Admin') return res.status(403).json({ message: 'Admin access required' });
   await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
   res.json({});
+});
+
+// Debug endpoint to manually verify a user (remove in production)
+app.post('/debug/verify-user', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ message: 'Email required' });
+  
+  const result = await pool.query(
+    'UPDATE users SET is_verified = true WHERE email = $1 RETURNING id, email',
+    [email]
+  );
+  
+  if (result.rows.length === 0) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+  
+  console.log(`🔧 Debug: Manually verified ${email}`);
+  res.json({ message: `User ${email} verified successfully` });
 });
 
 app.listen(PORT, () => {
