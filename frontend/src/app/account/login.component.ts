@@ -42,11 +42,13 @@ export class LoginComponent implements OnInit {
       .pipe(first())
       .subscribe({
         next: () => {
-          this.router.navigate(['/']);
-        },
-        error: () => {
-          this.toastService.error('Email or password is incorrect');
+          // Login successful - navigation happens in the service
           this.loading = false;
+        },
+        error: (error) => {
+          // Make sure loading is set to false on error
+          this.loading = false;
+          this.toastService.error('Email or password is incorrect');
         }
       });
   }
