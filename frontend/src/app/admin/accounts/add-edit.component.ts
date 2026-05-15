@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { first } from 'rxjs/operators';
 import { AccountService } from '@app/_services';
 import { ToastService } from '@app/_services/toast.service';
@@ -10,10 +10,10 @@ import { ToastService } from '@app/_services/toast.service';
   selector: 'admin-add-edit',
   templateUrl: 'add-edit.component.html',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule]
+  imports: [CommonModule, ReactiveFormsModule, RouterLink]
 })
 export class AddEditComponent implements OnInit {
-  title: string = '';
+  title = '';
   form!: UntypedFormGroup;
   loading = false;
   submitted = false;
@@ -39,7 +39,7 @@ export class AddEditComponent implements OnInit {
       lastName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       role: ['User', Validators.required],
-      password: ['', [Validators.minLength(6), ...(this.isAddMode ? [Validators.required] : [])]]
+      password: ['', [Validators.minLength(6), ...(this.isAddMode ? [] : [])]]
     });
 
     if (!this.isAddMode) {
@@ -73,7 +73,13 @@ export class AddEditComponent implements OnInit {
   }
 
   private createUser() {
-    this.accountService.create(this.form.value)
+    // Set default password for new users
+    const userData = {
+      ...this.form.value,
+      password: 'Password123'
+    };
+    
+    this.accountService.create(userData)
       .pipe(first())
       .subscribe({
         next: () => {
