@@ -9,13 +9,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// In-memory database (temporary - replace with real DB later)
+// In-memory database
 let users = [];
 let refreshTokens = [];
 
-// CORS configuration
+// CORS configuration - allow your frontend
 app.use(cors({
-  origin: 'http://localhost:4200',
+  origin: [
+    'http://localhost:4200',
+    'https://final-auth-project-frontend.onrender.com'
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -33,31 +36,29 @@ const generateRefreshToken = () => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 };
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://final-auth-project-frontend.onrender.com';
+
 // ============ AUTH ENDPOINTS ============
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Backend is running!' });
 });
 
 // Register
-app.post('/api/accounts/register', async (req, res) => {
+app.post('/accounts/register', async (req, res) => {
   try {
     const { email, password, firstName, lastName, title } = req.body;
-    
     console.log('Register request:', { email, firstName, lastName, title });
-    
-    // Check if user exists
+
     const existingUser = users.find(u => u.email === email);
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
-    
-    // Hash password
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = Math.random().toString(36).substring(2);
-    
-    // Create new user (first user becomes Admin)
+
     const newUser = {
       id: users.length + 1,
       email,
@@ -67,14 +68,15 @@ app.post('/api/accounts/register', async (req, res) => {
       title,
       role: users.length === 0 ? 'Admin' : 'User',
       isVerified: false,
-      verificationToken
+      verificationToken,
+      refreshTokens: []
     };
-    
+
     users.push(newUser);
-    
+
     console.log(`✅ User registered: ${email}`);
-    console.log(`🔗 Verification link: http://localhost:4200/account/verify-email?token=${verificationToken}`);
-    
+    console.log(`🔗 Verification link: ${FRONTEND_URL}/account/verify-email?token=${verificationToken}`);
+
     res.status(201).json({ message: 'Registration successful. Please verify your email.' });
   } catch (error) {
     console.error('Register error:', error);
@@ -83,18 +85,18 @@ app.post('/api/accounts/register', async (req, res) => {
 });
 
 // Verify Email
-app.post('/api/accounts/verify-email', (req, res) => {
+app.post('/accounts/verify-email', (req, res) => {
   try {
     const { token } = req.body;
     const user = users.find(u => u.verificationToken === token);
-    
+
     if (!user) {
       return res.status(400).json({ message: 'Invalid token' });
     }
-    
+
     user.isVerified = true;
     delete user.verificationToken;
-    
+
     console.log(`✅ Email verified: ${user.email}`);
     res.json({ message: 'Email verified successfully' });
   } catch (error) {
@@ -102,34 +104,31 @@ app.post('/api/accounts/verify-email', (req, res) => {
   }
 });
 
-// Login (Authenticate)
-app.post('/api/accounts/authenticate', async (req, res) => {
+// Login
+app.post('/accounts/authenticate', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
     console.log('Login attempt:', email);
-    
+
     const user = users.find(u => u.email === email && u.isVerified === true);
-    
+
     if (!user) {
-      console.log('❌ User not found or not verified:', email);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Email or password is incorrect' });
     }
-    
+
     const validPassword = await bcrypt.compare(password, user.password);
-    
     if (!validPassword) {
-      console.log('❌ Invalid password for:', email);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Email or password is incorrect' });
     }
-    
+
     const refreshToken = generateRefreshToken();
-    refreshTokens.push(refreshToken);
-    
+    user.refreshTokens = user.refreshTokens || [];
+    user.refreshTokens.push(refreshToken);
+
     const accessToken = generateAccessToken(user);
-    
+
     console.log(`✅ Login successful: ${email} (${user.role})`);
-    
+
     res.json({
       id: user.id,
       email: user.email,
@@ -138,8 +137,7 @@ app.post('/api/accounts/authenticate', async (req, res) => {
       title: user.title,
       role: user.role,
       isVerified: user.isVerified,
-      jwtToken: accessToken,
-      refreshToken: refreshToken
+      jwtToken: accessToken
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -148,149 +146,171 @@ app.post('/api/accounts/authenticate', async (req, res) => {
 });
 
 // Refresh Token
-app.post('/api/accounts/refresh-token', (req, res) => {
-  const { refreshToken } = req.body;
-  
-  if (!refreshToken || !refreshTokens.includes(refreshToken)) {
+app.post('/accounts/refresh-token', (req, res) => {
+  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
+  if (!refreshToken) {
+    return res.status(401).json({ message: 'No refresh token' });
+  }
+
+  const user = users.find(u => u.refreshTokens && u.refreshTokens.includes(refreshToken));
+  if (!user) {
     return res.status(401).json({ message: 'Invalid refresh token' });
   }
-  
-  // Find user by refresh token (simplified)
-  const user = users.find(u => u.id);
-  if (!user) {
-    return res.status(401).json({ message: 'User not found' });
-  }
-  
-  const newAccessToken = generateAccessToken(user);
-  res.json({ jwtToken: newAccessToken });
+
+  const newRefreshToken = generateRefreshToken();
+  user.refreshTokens = user.refreshTokens.filter(t => t !== refreshToken);
+  user.refreshTokens.push(newRefreshToken);
+
+  const accessToken = generateAccessToken(user);
+
+  res.json({
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    title: user.title,
+    role: user.role,
+    isVerified: user.isVerified,
+    jwtToken: accessToken
+  });
 });
 
 // Revoke Token (Logout)
-app.post('/api/accounts/revoke-token', (req, res) => {
-  const { refreshToken } = req.body;
-  
+app.post('/accounts/revoke-token', (req, res) => {
+  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+
   if (refreshToken) {
-    const index = refreshTokens.indexOf(refreshToken);
-    if (index !== -1) {
-      refreshTokens.splice(index, 1);
-    }
+    users.forEach(u => {
+      if (u.refreshTokens) {
+        u.refreshTokens = u.refreshTokens.filter(t => t !== refreshToken);
+      }
+    });
   }
-  
+
   res.json({});
 });
 
 // Forgot Password
-app.post('/api/accounts/forgot-password', (req, res) => {
+app.post('/accounts/forgot-password', (req, res) => {
   const { email } = req.body;
   const user = users.find(u => u.email === email);
-  
+
   if (user) {
     const resetToken = Math.random().toString(36).substring(2);
     user.resetToken = resetToken;
     user.resetTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    
-    console.log(`🔗 Reset link: http://localhost:4200/account/reset-password?token=${resetToken}`);
+    console.log(`🔗 Reset link: ${FRONTEND_URL}/account/reset-password?token=${resetToken}`);
   }
-  
+
   res.json({});
 });
 
 // Validate Reset Token
-app.post('/api/accounts/validate-reset-token', (req, res) => {
+app.post('/accounts/validate-reset-token', (req, res) => {
   const { token } = req.body;
   const user = users.find(u => u.resetToken === token && new Date() < new Date(u.resetTokenExpires));
-  
+
   if (!user) {
     return res.status(400).json({ message: 'Invalid or expired token' });
   }
-  
+
   res.json({});
 });
 
 // Reset Password
-app.post('/api/accounts/reset-password', async (req, res) => {
+app.post('/accounts/reset-password', async (req, res) => {
   const { token, password } = req.body;
   const user = users.find(u => u.resetToken === token && new Date() < new Date(u.resetTokenExpires));
-  
+
   if (!user) {
     return res.status(400).json({ message: 'Invalid or expired token' });
   }
-  
-  const hashedPassword = await bcrypt.hash(password, 10);
-  user.password = hashedPassword;
+
+  user.password = await bcrypt.hash(password, 10);
+  user.isVerified = true;
   delete user.resetToken;
   delete user.resetTokenExpires;
-  
+
   res.json({});
 });
 
 // ============ ADMIN ENDPOINTS ============
 
-// Get all users (Admin only)
-app.get('/api/accounts', (req, res) => {
+const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: 'No token provided' });
-  }
-  
+  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
+
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
-    
-    if (decoded.role !== 'Admin') {
-      return res.status(403).json({ message: 'Admin access required' });
-    }
-    
-    const usersList = users.map(u => ({
-      id: u.id,
-      email: u.email,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      title: u.title,
-      role: u.role,
-      isVerified: u.isVerified
-    }));
-    
-    res.json(usersList);
-  } catch (error) {
+    req.user = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+    next();
+  } catch {
     res.status(401).json({ message: 'Invalid token' });
   }
+};
+
+// Get all accounts
+app.get('/accounts', verifyToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  const usersList = users.map(u => ({
+    id: u.id, email: u.email, firstName: u.firstName,
+    lastName: u.lastName, title: u.title, role: u.role, isVerified: u.isVerified
+  }));
+  res.json(usersList);
 });
 
-// Create user (Admin only)
-app.post('/api/accounts', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: 'No token provided' });
+// Get account by ID
+app.get('/accounts/:id', verifyToken, (req, res) => {
+  const user = users.find(u => u.id === parseInt(req.params.id));
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  const { password, refreshTokens, resetToken, resetTokenExpires, verificationToken, ...safeUser } = user;
+  res.json(safeUser);
+});
+
+// Create account (Admin)
+app.post('/accounts', verifyToken, async (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Admin access required' });
   }
-  
-  const token = authHeader.split(' ')[1];
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
-    
-    if (decoded.role !== 'Admin') {
-      return res.status(403).json({ message: 'Admin access required' });
-    }
-    
-    const { email, firstName, lastName, title, role } = req.body;
-    const hashedPassword = await bcrypt.hash('Password123', 10);
-    
-    const newUser = {
-      id: users.length + 1,
-      email,
-      password: hashedPassword,
-      firstName,
-      lastName,
-      title,
-      role: role || 'User',
-      isVerified: true
-    };
-    
-    users.push(newUser);
-    res.status(201).json(newUser);
-  } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
+  const { email, firstName, lastName, title, role, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password || 'Password123', 10);
+  const newUser = {
+    id: users.length + 1, email, password: hashedPassword,
+    firstName, lastName, title, role: role || 'User',
+    isVerified: true, refreshTokens: []
+  };
+  users.push(newUser);
+  const { password: p, refreshTokens: rt, ...safeUser } = newUser;
+  res.status(201).json(safeUser);
+});
+
+// Update account
+app.put('/accounts/:id', verifyToken, async (req, res) => {
+  const user = users.find(u => u.id === parseInt(req.params.id));
+  if (!user) return res.status(404).json({ message: 'User not found' });
+
+  const { firstName, lastName, title, email, role, password } = req.body;
+  if (firstName) user.firstName = firstName;
+  if (lastName) user.lastName = lastName;
+  if (title) user.title = title;
+  if (email) user.email = email;
+  if (role && req.user.role === 'Admin') user.role = role;
+  if (password) user.password = await bcrypt.hash(password, 10);
+
+  const { password: p, refreshTokens: rt, ...safeUser } = user;
+  res.json(safeUser);
+});
+
+// Delete account
+app.delete('/accounts/:id', verifyToken, (req, res) => {
+  if (req.user.role !== 'Admin') {
+    return res.status(403).json({ message: 'Admin access required' });
   }
+  users = users.filter(u => u.id !== parseInt(req.params.id));
+  res.json({});
 });
 
 app.listen(PORT, () => {
