@@ -14,6 +14,7 @@ import { Account } from '@app/_models';
 export class UpdateComponent implements OnInit {
   form!: UntypedFormGroup;
   loading = false;
+  deleting = false;
   submitted = false;
   account: Account | null = null;
 
@@ -27,9 +28,9 @@ export class UpdateComponent implements OnInit {
     this.accountService.account.subscribe(x => {
       this.account = x;
       this.form = this.formBuilder.group({
+        title: [x?.title, Validators.required],
         firstName: [x?.firstName, Validators.required],
         lastName: [x?.lastName, Validators.required],
-        title: [x?.title, Validators.required],
         email: [x?.email, [Validators.required, Validators.email]],
         password: ['', [Validators.minLength(6)]]
       });
@@ -44,9 +45,9 @@ export class UpdateComponent implements OnInit {
     
     this.loading = true;
     const updateData: any = {
+      title: this.f['title'].value,
       firstName: this.f['firstName'].value,
       lastName: this.f['lastName'].value,
-      title: this.f['title'].value,
       email: this.f['email'].value
     };
     
@@ -68,5 +69,23 @@ export class UpdateComponent implements OnInit {
           this.loading = false;
         }
       });
+  }
+
+  onDelete() {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      this.deleting = true;
+      this.accountService.delete(this.account!.id.toString())
+        .pipe(first())
+        .subscribe({
+          next: () => {
+            this.toastService.info('Your account has been deleted.');
+            // Logout will happen automatically in the service
+          },
+          error: () => {
+            this.toastService.error('Failed to delete account.');
+            this.deleting = false;
+          }
+        });
+    }
   }
 }

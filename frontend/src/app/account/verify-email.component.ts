@@ -13,7 +13,7 @@ import { ToastService } from '@app/_services/toast.service';
 export class VerifyEmailComponent implements OnInit {
   verifying = true;
   verified = false;
-  error = false;
+  verifyFailed = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -27,7 +27,7 @@ export class VerifyEmailComponent implements OnInit {
     
     if (!token) {
       this.verifying = false;
-      this.error = true;
+      this.verifyFailed = true;
       this.toastService.error('No verification token provided.');
       return;
     }
@@ -45,7 +45,7 @@ export class VerifyEmailComponent implements OnInit {
         },
         error: () => {
           this.verifying = false;
-          this.error = true;
+          this.verifyFailed = true;
           this.toastService.error('Invalid or expired verification token.');
         }
       });
