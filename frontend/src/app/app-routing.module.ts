@@ -5,7 +5,15 @@ import { Role } from '@app/_models';
 import { HomeComponent } from './home/home.component';
 
 const routes: Routes = [
-  { path: '', component: HomeComponent, canActivate: [AuthGuard] },
+  { 
+    path: '', 
+    component: HomeComponent, 
+    canActivate: [AuthGuard] 
+  },
+  { 
+    path: 'login',  // Add this explicit redirect
+    redirectTo: '/account/login' 
+  },
   {
     path: 'account',
     loadChildren: () => import('./account/account.module').then(m => m.AccountModule)
@@ -21,7 +29,7 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     data: { roles: [Role.Admin] }
   },
-  { path: '**', redirectTo: '' }
+  { path: '**', redirectTo: '/account/login' }  // Change this from '' to '/account/login'
 ];
 
 @NgModule({
