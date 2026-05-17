@@ -40,7 +40,25 @@ export class LoginComponent implements OnInit {
 
   onSubmit() {
     this.submitted = true;
-    if (this.form.invalid) return;
+    
+    // Check for client-side validation errors
+    if (this.form.invalid) {
+      // Show toast for invalid email
+      if (this.f['email'].errors) {
+        if (this.f['email'].errors['required']) {
+          this.toastService.error('Email is required');
+        } else if (this.f['email'].errors['email']) {
+          this.toastService.error('Please enter a valid email address');
+        }
+      }
+      // Show toast for missing password
+      if (this.f['password'].errors) {
+        if (this.f['password'].errors['required']) {
+          this.toastService.error('Password is required');
+        }
+      }
+      return;
+    }
     
     this.loading = true;
     this.accountService.login(this.f['email'].value, this.f['password'].value)
@@ -52,10 +70,22 @@ export class LoginComponent implements OnInit {
           this.loading = false;
         },
         error: (error) => {
-          // IMPORTANT: Reset loading state so button becomes active again
+          // Reset loading state so button becomes active again
           this.loading = false;
-          // Show toast notification for wrong credentials
-          this.toastService.error('Invalid email or password. Please try again.');
+          
+          // Handle different error scenarios
+          let errorMessage = 'Login failed. Please try again.';
+          
+          if (error.error && error.error.message) {
+            errorMessage = error.error.message;
+          } else if (error.status === 401) {
+            errorMessage = 'Invalid email or password. Please try again.';
+          } else if (error.status === 0) {
+            errorMessage = 'Unable to connect to the server. Please check your internet connection.';
+          }
+          
+          // Show error notification
+          this.toastService.error(errorMessage);
         }
       });
   }

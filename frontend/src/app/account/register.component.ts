@@ -41,7 +41,39 @@ export class RegisterComponent implements OnInit {
 
   onSubmit() {
     this.submitted = true;
-    if (this.form.invalid) return;
+    
+    // Check for client-side validation errors
+    if (this.form.invalid) {
+      // Show toast for invalid email
+      if (this.f['email'].errors) {
+        if (this.f['email'].errors['required']) {
+          this.toastService.error('Email is required');
+        } else if (this.f['email'].errors['email']) {
+          this.toastService.error('Please enter a valid email address');
+        }
+      }
+      // Show toast for password errors
+      else if (this.f['password'].errors) {
+        if (this.f['password'].errors['required']) {
+          this.toastService.error('Password is required');
+        } else if (this.f['password'].errors['minlength']) {
+          this.toastService.error('Password must be at least 6 characters');
+        }
+      }
+      // Show toast for password mismatch
+      else if (this.form.errors && this.form.errors['mustMatch']) {
+        this.toastService.error('Passwords do not match');
+      }
+      // Show toast for required fields
+      else if (this.f['title'].errors || this.f['firstName'].errors || this.f['lastName'].errors) {
+        this.toastService.error('Please fill in all required fields');
+      }
+      // Show toast for terms acceptance
+      else if (this.f['acceptTerms'].errors) {
+        this.toastService.error('You must accept the Terms & Conditions');
+      }
+      return;
+    }
     
     this.loading = true;
     this.accountService.register(this.form.value)
@@ -57,11 +89,17 @@ export class RegisterComponent implements OnInit {
           let errorMessage = 'Registration failed. Please try again.';
           
           if (error.error && error.error.message) {
-            if (error.error.message === 'User already exists') {
+            if (error.error.message === 'User already exists' || error.error.message.includes('already exists')) {
               errorMessage = 'This email is already registered. Please login or use a different email.';
+            } else if (error.error.message.includes('email')) {
+              errorMessage = 'Invalid email address. Please check and try again.';
             } else {
               errorMessage = error.error.message;
             }
+          } else if (error.status === 400) {
+            errorMessage = 'Invalid registration data. Please check your information.';
+          } else if (error.status === 0) {
+            errorMessage = 'Unable to connect to the server. Please check your internet connection.';
           }
           
           this.toastService.error(errorMessage);
