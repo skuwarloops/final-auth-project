@@ -20,10 +20,10 @@ import { Toast } from '@app/_models/toast';
           </div>
           <div class="toast-message" [innerHTML]="toast.message"></div>
         </div>
-        <button class="toast-close" (click)="closeToast()">×</button>
+        <button class="toast-close" (click)="closeToast()" aria-label="Close notification">×</button>
       </div>
       <div class="toast-progress" [class]="'progress-' + toast.type">
-        <div class="toast-progress-bar" [style.animation]="'progress 3s linear forwards'"></div>
+        <div class="toast-progress-bar" [style.animation]="'progress 3.3s linear forwards'"></div>
       </div>
     </div>
   `,
@@ -48,6 +48,7 @@ import { Toast } from '@app/_models/toast';
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       overflow: hidden;
       position: relative;
+      padding-right: 40px;
     }
 
     .toast-content {
@@ -66,6 +67,7 @@ import { Toast } from '@app/_models/toast';
       justify-content: center;
       font-weight: bold;
       font-size: 14px;
+      flex-shrink: 0;
     }
 
     .toast-message {
@@ -73,6 +75,7 @@ import { Toast } from '@app/_models/toast';
       font-size: 14px;
       line-height: 1.4;
       color: #333;
+      word-break: break-word;
     }
 
     .toast-close {
@@ -87,11 +90,23 @@ import { Toast } from '@app/_models/toast';
       position: absolute;
       top: 8px;
       right: 8px;
+      z-index: 10;
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      line-height: 1;
     }
 
     .toast-close:hover {
       background: rgba(0, 0, 0, 0.05);
       color: #333;
+    }
+
+    .toast-close:active {
+      background: rgba(0, 0, 0, 0.1);
     }
 
     .toast-success {
@@ -205,7 +220,7 @@ export class ToastComponent implements OnInit, OnDestroy {
         // Auto hide after 3 seconds
         this.timeoutId = setTimeout(() => {
           this.hideToast = true;
-          // Remove toast after animation
+          // Remove toast after animation (300ms fade-out)
           setTimeout(() => {
             this.toast = null;
             this.toastService.clear();

@@ -3,7 +3,7 @@
     <h2>Accounts</h2>
     <div>
       <button class="btn btn-secondary me-2" (click)="refreshAccounts()">
-        🔄 Refresh
+        Refresh
       </button>
       <a routerLink="add" class="btn btn-primary">
         + Add Account
@@ -62,7 +62,7 @@
             </td>
             <td>
               <span class="badge" [ngClass]="account.isVerified ? 'bg-success' : 'bg-warning'">
-                {{ account.isVerified ? '✓ Verified' : '⚠ Pending' }}
+                {{ account.isVerified ? 'Verified' : 'Pending' }}
               </span>
             </td>
             <td>
@@ -71,7 +71,7 @@
                 class="btn btn-sm btn-danger"
                 [disabled]="account.isDeleting">
                 <span *ngIf="account.isDeleting" class="spinner-border spinner-border-sm me-1"></span>
-                🗑️ Delete
+                 Delete
               </button>
             </td>
           </tr>
